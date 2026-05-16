@@ -22,12 +22,13 @@ namespace MSFSPopoutPanelManager.Orchestration
                 if (FlightSimData.IsInCockpit)
                     StartConfiguration();
             };
-            ProfileData.OnActiveProfileChanged += (_, _) => { EndConfiguration(); EndTouchHook(); };
+            ProfileData.OnActiveProfileChanged += (_, _) => { EndConfiguration(); EndTouchHook(); EndRefocusOnDisplayHook(); };
 
             flightSimOrchestrator.OnFlightStopped += (_, _) =>
             {
                 EndConfiguration();
                 EndTouchHook();
+                EndRefocusOnDisplayHook();
             };
 
             _keyboardOrchestrator.OnKeystrokeDetected += (_, e) =>
@@ -84,6 +85,8 @@ namespace MSFSPopoutPanelManager.Orchestration
             TouchEventManager.ActiveProfile = ProfileData.ActiveProfile;
             TouchEventManager.ApplicationSetting = AppSettingData.ApplicationSetting;
             GameRefocusManager.ApplicationSetting = AppSettingData.ApplicationSetting;
+            RefocusOnDisplayManager.ActiveProfile = ProfileData.ActiveProfile;
+            RefocusOnDisplayManager.ApplicationSetting = AppSettingData.ApplicationSetting;
 
             // Must use application dispatcher to dispatch UI events (winEventHook)
             Application.Current.Dispatcher.Invoke(WindowEventManager.HookWinEvent);
@@ -105,9 +108,8 @@ namespace MSFSPopoutPanelManager.Orchestration
                     return;
 
                 var hasTouchEnabledPanel = ActiveProfile.PanelConfigs.Any(p => p.TouchEnabled && p.IsPopOutSuccess != null && (bool)p.IsPopOutSuccess);
-                var hasRefocusDisplays = ActiveProfile.PanelConfigs.Any(p => p.PanelType == PanelType.RefocusDisplay);
 
-                if (hasRefocusDisplays || (hasTouchEnabledPanel && !TouchEventManager.IsHooked))
+                if (hasTouchEnabledPanel && !TouchEventManager.IsHooked)
                     TouchEventManager.Hook();
             });
         }
@@ -115,6 +117,28 @@ namespace MSFSPopoutPanelManager.Orchestration
         public void EndTouchHook()
         {
             Application.Current.Dispatcher.Invoke(TouchEventManager.UnHook);
+        }
+
+        public void StartRefocusOnDisplayHook()
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                RefocusOnDisplayManager.UnHook();
+
+                if (!ActiveProfile.IsPoppedOut)
+                    return;
+
+                if (!ActiveProfile.ProfileSetting.RefocusOnDisplay.IsEnabled)
+                    return;
+
+                if (ActiveProfile.PanelConfigs.Any(p => p.PanelType == PanelType.RefocusDisplay))
+                    RefocusOnDisplayManager.Hook();
+            });
+        }
+
+        public void EndRefocusOnDisplayHook()
+        {
+            Application.Current.Dispatcher.Invoke(RefocusOnDisplayManager.UnHook);
         }
 
         public void PanelConfigPropertyUpdated(IntPtr panelHandle, PanelConfigPropertyName configPropertyName)

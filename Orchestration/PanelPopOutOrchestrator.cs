@@ -452,6 +452,9 @@ namespace MSFSPopoutPanelManager.Orchestration
                 // Start touch hook
                 _panelConfigurationOrchestrator.StartTouchHook();
 
+                // Start refocus-on-display foreground watcher
+                _panelConfigurationOrchestrator.StartRefocusOnDisplayHook();
+
                 if (hasBeforePanelPopOutError || CheckForPopOutError())
                 {
                     StatusMessageWriter.WriteMessageWithNewLine("Pop out did not complete with one or more errors.", StatusMessageType.Info);

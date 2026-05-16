@@ -109,11 +109,9 @@ namespace MSFSPopoutPanelManager.WindowsAgent
                 case WM_RBUTTONUP:
                     return 1;
 
-                case WM_LBUTTONDOWN:                                        
+                case WM_LBUTTONDOWN:
                     _refocusedTaskIndex++;
-                    if (panelConfig.PanelType == PanelType.RefocusDisplay)
-                        return 1;
-                
+
                     Task.Run(() =>
                     {
                         Debug.WriteLine($"DX: {info.pt.X}, DY: {info.pt.Y}");
@@ -132,64 +130,37 @@ namespace MSFSPopoutPanelManager.WindowsAgent
 
                     return 1;
                 case WM_LBUTTONUP:
-                    if (panelConfig.PanelType == PanelType.RefocusDisplay)
+                    Task.Run(() =>
                     {
-                        Task.Run(() =>
+                        Thread.Sleep(MouseClickDelay * 2);      // this must match amount of total exec threadsleep time during WM_LBUTTONDOWN
+
+                        lock (Lock)
                         {
-                            // Refocus game window
-                            if (ApplicationSetting.RefocusSetting.RefocusGameWindow.IsEnabled && panelConfig.AutoGameRefocus)
-                            {
-                                var currentRefocusIndex = _refocusedTaskIndex;
+                            _coor = _queue.Dequeue();
 
-                                Thread.Sleep(Convert.ToInt32(ApplicationSetting.RefocusSetting.RefocusGameWindow.Delay * 1000));
+                            Debug.WriteLine($"UX: {_coor.Item1}, UY: {_coor.Item2}");
 
-                                if (currentRefocusIndex == _refocusedTaskIndex)
-                                {
-                                    WindowActionManager.RefocusMsfsGameWindow();
-                                }
-                            }
-                        });
-                    }
-                    else
-                    {
-                        Task.Run(() =>
+                            PInvoke.mouse_event(MOUSEEVENTF_LEFTUP, _coor.Item1, _coor.Item2, 0, 0);
+                            Thread.Sleep(ApplicationSetting.TouchSetting.TouchDownUpDelay + MouseClickDelay);
+
+                            PInvoke.mouse_event(MOUSEEVENTF_LEFTUP, _coor.Item1, _coor.Item2, 0, 0);
+
+                            Debug.WriteLine("-------------------------");
+                        }
+
+                        // Refocus game window
+                        if (ApplicationSetting.RefocusSetting.RefocusGameWindow.IsEnabled && panelConfig.AutoGameRefocus)
                         {
-                            Thread.Sleep(MouseClickDelay * 2);      // this must match amount of total exec threadsleep time during WM_LBUTTONDOWN 
+                            var currentRefocusIndex = _refocusedTaskIndex;
 
-                            lock (Lock)
+                            Thread.Sleep(Convert.ToInt32(ApplicationSetting.RefocusSetting.RefocusGameWindow.Delay * 1000));
+
+                            if (currentRefocusIndex == _refocusedTaskIndex)
                             {
-                                _coor = _queue.Dequeue();
-
-                                Debug.WriteLine($"UX: {_coor.Item1}, UY: {_coor.Item2}");
-
-                                PInvoke.mouse_event(MOUSEEVENTF_LEFTUP, _coor.Item1, _coor.Item2, 0, 0);
-                                Thread.Sleep(ApplicationSetting.TouchSetting.TouchDownUpDelay + MouseClickDelay);
-
-                                PInvoke.mouse_event(MOUSEEVENTF_LEFTUP, _coor.Item1, _coor.Item2, 0, 0);
-
-                                Debug.WriteLine("-------------------------");
+                                WindowActionManager.RefocusMsfsGameWindow();
                             }
-
-                          
-
-                            // Refocus game window
-                            if (ApplicationSetting.RefocusSetting.RefocusGameWindow.IsEnabled && panelConfig.AutoGameRefocus)
-                            {
-                                var currentRefocusIndex = _refocusedTaskIndex;
-
-                                Thread.Sleep(Convert.ToInt32(ApplicationSetting.RefocusSetting.RefocusGameWindow.Delay * 1000));
-
-                                if (currentRefocusIndex == _refocusedTaskIndex)
-                                {
-                                    WindowActionManager.RefocusMsfsGameWindow();
-                                }
-                            }
-
-
-                          
-                        });
-                    }
-
+                        }
+                    });
 
                     return 1;
                 case WM_MOUSEMOVE:
